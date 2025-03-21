@@ -1,32 +1,39 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
-from allauth.account.forms import ResetPasswordForm
+from allauth.account.forms import SignupForm
 
 from .models import User
 
 
-class UserCreationForm(UserCreationForm):
+# Custom UserCreationForm with additional fields 'type' and 'profile_image'
+class CustomUserCreationForm(UserCreationForm):
+    type = forms.ChoiceField(choices=User.Types.choices, required=True, label="User Type")
+    profile_image = forms.ImageField(required=False, label="Profile Image")
 
     class Meta:
         model = User
-        fields = ("email", "first_name", "last_name", "password1", "password2")
+        fields = ("email", "first_name", "last_name", "type", "profile_image", "password1", "password2")
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if commit:
+            user.save()
+        return user
 
 
+# Custom UserChangeForm
 class UserChangeForm(UserChangeForm):
-
     class Meta:
         model = User
-        fields = ("email", "first_name", "last_name")
-        
+        fields = ("email", "first_name", "last_name", "type", "profile_image")
 
 
-class CustomResetPasswordForm(ResetPasswordForm):
-    # Example: Add custom field to the form
-    custom_field = forms.CharField(required=False, widget=forms.TextInput(attrs={'placeholder': 'Custom Field'}))
+# Custom SignupForm to align with the user model and handle the 'type' and 'profile_image' fields
+class CustomSignupForm(SignupForm):
+    type = forms.ChoiceField(choices=User.Types.choices, required=True, label="User Type")
 
-    def clean_custom_field(self):
-        # Add custom validation logic for the custom field
-        custom_value = self.cleaned_data.get('custom_field')
-        if custom_value and len(custom_value) < 5:
-            raise forms.ValidationError("Custom field must be at least 5 characters.")
-        return custom_value
+    def save(self, request):
+        user = super().save(request)
+        user.type = self.cleaned_data['type']  # Save the 'type' field
+        user.save()
+        return user
